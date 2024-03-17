@@ -2,6 +2,24 @@ import User from "../models/userModel.js";
 import bcrypt from "bcryptjs";
 import generateTokenAndSetCookie from "../utils/helpers/generateTokenAndSetCookie.js";
 
+const getUserProfile = async (req, res) => {
+    const username = req.params.username;
+
+    try {
+        const user = await User.findOne({ username })
+            .select("-password")
+            .select("-updatedAt");
+        if (!user) {
+            return res.status(400).json({ message: "User not found!" });
+        }
+
+        return res.status(200).json(user);
+    } catch (e) {
+        console.log("Error getUserProfile: ", e.message);
+        return res.status(500).json({ message: e.message });
+    }
+};
+
 const signupUser = async (req, res) => {
     try {
         const { name, email, username, password } = req.body;
@@ -82,12 +100,13 @@ const logoutUser = async (req, res) => {
 
 const followUnFollowUser = async (req, res) => {
     try {
+        // lấy ra id user của người ta định follow hoặc un follow
         const { id } = req.params;
 
-        // lấy ra thông tin cảu họ
+        // lấy ra thông tin của họ theo id;
         const userToModify = await User.findById(id);
 
-        // lấy ra thông tin của chính mình
+        // lấy ra thông tin của chính mình(từ request của middleware protectRoute gửi đến)
         const currentUser = await User.findById(req.user._id);
 
         if (id === req.user._id.toString()) {
@@ -100,9 +119,8 @@ const followUnFollowUser = async (req, res) => {
             return res.status(400).json({ error: "User not found" });
         }
 
+        // check xem id của người kia đã có trong mảng following của ta hay chưa
         const isFollowing = currentUser.following.includes(id);
-
-        // console.log(isFollowing);
 
         if (isFollowing) {
             // bỏ follow người mà ta đang theo dõi, dùng $pull để loại bỏ id đó khỏi mảng following
@@ -133,4 +151,48 @@ const followUnFollowUser = async (req, res) => {
     }
 };
 
-export { signupUser, loginUser, logoutUser, followUnFollowUser };
+const updateUser = async (req, res) => {
+    const { name, email, username, password, profilePic, bio } = req.body;
+    const userId = req.user._id;
+    try {
+        let user = await User.findById(userId);
+
+        if (!user) {
+            return res.status(400).json({ message: "user not found!" });
+        }
+
+        if (req.params.id !== userId.toString())
+            return res
+                .status(400)
+                .json({ error: "You cannot update other user's profile" });
+
+        if (password) {
+            const salt = await bcrypt.genSalt(10);
+            const hashedPassword = await bcrypt.hash(password, salt);
+            user.password = hashedPassword;
+        }
+
+        user.name = name || user.name;
+        user.email = email || user.email;
+        user.username = username || user.username;
+        user.profilePic = profilePic || user.profilePic;
+        user.bio = bio || user.bio;
+
+        user = await user.save();
+        return res
+            .status(200)
+            .json({ message: "Profile updated successfully", user: user });
+    } catch (e) {
+        console.log("Error updateUser: ", e.message);
+        return res.status(500).json({ message: e.message });
+    }
+};
+
+export {
+    signupUser,
+    loginUser,
+    logoutUser,
+    followUnFollowUser,
+    updateUser,
+    getUserProfile,
+};
