@@ -1,6 +1,7 @@
 import User from "../models/userModel.js";
 import bcrypt from "bcryptjs";
 import generateTokenAndSetCookie from "../utils/helpers/generateTokenAndSetCookie.js";
+import { v2 as cloudinary } from "cloudinary";
 
 const getUserProfile = async (req, res) => {
     const username = req.params.username;
@@ -10,13 +11,13 @@ const getUserProfile = async (req, res) => {
             .select("-password")
             .select("-updatedAt");
         if (!user) {
-            return res.status(400).json({ message: "User not found!" });
+            return res.status(400).json({ error: "User not found!" });
         }
 
         return res.status(200).json(user);
     } catch (e) {
         console.log("Error getUserProfile: ", e.message);
-        return res.status(500).json({ message: e.message });
+        return res.status(500).json({ error: e.message });
     }
 };
 
@@ -26,7 +27,7 @@ const signupUser = async (req, res) => {
         const user = await User.findOne({ $or: [{ email }, { username }] });
 
         if (user) {
-            return res.status(400).json({ message: "User already exists" });
+            return res.status(400).json({ error: "User already exists" });
         }
 
         const salt = await bcrypt.genSalt(10);
@@ -47,15 +48,17 @@ const signupUser = async (req, res) => {
                 name: newUser.name,
                 email: newUser.email,
                 username: newUser.username,
+                bio: newUser.bio,
+                profilePic: newUser.profilePic,
             });
         } else {
             return res.status(400).json({
-                message: "Invalid user data",
+                error: "Invalid user data",
             });
         }
     } catch (e) {
-        return res.status(500).json({ message: e.message });
         console.log("Error in signupUser: ", e.message);
+        return res.status(500).json({ error: e.message });
     }
 };
 
@@ -71,7 +74,7 @@ const loginUser = async (req, res) => {
         if (!user || !isPasswordCorrect) {
             return res
                 .status(400)
-                .json({ message: "Invalid username or password" });
+                .json({ error: "Invalid username or password" });
         }
 
         generateTokenAndSetCookie(user._id, res);
@@ -81,10 +84,12 @@ const loginUser = async (req, res) => {
             name: user.name,
             username: user.username,
             email: user.email,
+            bio: user.bio,
+            profilePic: user.profilePic,
         });
     } catch (e) {
         console.log("Error in loginUser: ", e.message);
-        return res.status(500).json({ message: e.message });
+        return res.status(500).json({ error: e.message });
     }
 };
 
@@ -94,7 +99,7 @@ const logoutUser = async (req, res) => {
         res.status(200).json({ message: "User logged out successfully" });
     } catch (e) {
         console.log("Error in logoutUser: ", e.message);
-        return res.status(500).json({ message: e.message });
+        return res.status(500).json({ error: e.message });
     }
 };
 
@@ -147,18 +152,19 @@ const followUnFollowUser = async (req, res) => {
         }
     } catch (e) {
         console.log("Error followUnFollowUser: ", e.message);
-        return res.status(500).json({ message: e.message });
+        return res.status(500).json({ error: e.message });
     }
 };
 
 const updateUser = async (req, res) => {
-    const { name, email, username, password, profilePic, bio } = req.body;
+    const { name, email, username, password, bio } = req.body;
+    let { profilePic } = req.body;
     const userId = req.user._id;
     try {
         let user = await User.findById(userId);
 
         if (!user) {
-            return res.status(400).json({ message: "user not found!" });
+            return res.status(400).json({ error: "user not found!" });
         }
 
         if (req.params.id !== userId.toString())
@@ -172,6 +178,38 @@ const updateUser = async (req, res) => {
             user.password = hashedPassword;
         }
 
+        if (
+            email.toString() !== user.email.toString() ||
+            username.toString() !== user.username.toString()
+        ) {
+            const userOther = await User.findOne({
+                $or: [{ email }, { username }],
+            });
+            if (userOther) {
+                return res
+                    .status(400)
+                    .json({ error: "Người dùng này đã tồn tại!" });
+            }
+        }
+
+        // https://res.cloudinary.com/dexorflhe/image/upload/v1710770158/smdsxp1zwrjrpw32ctlr.jpg
+        // user.profilePic.split("/") => ["https:", "res.cloudinary.com", "dexorflhe", "image", ...., "smdsxp1zwrjrpw32ctlr.jpg"]
+        // user.profilePic.split("/").pop() =>  "smdsxp1zwrjrpw32ctlr.jpg"
+        // user.profilePic.split("/").pop().split(".") => ["smdsxp1zwrjrpw32ctlr", "jpg"]
+        // user.profilePic.split("/").pop().split(".")[0] => "smdsxp1zwrjrpw32ctlr"
+        if (profilePic) {
+            if (user.profilePic) {
+                await cloudinary.uploader.destroy(
+                    user.profilePic.split("/").pop().split(".")[0]
+                );
+            }
+
+            const uploadedResponse = await cloudinary.uploader.upload(
+                profilePic
+            );
+            profilePic = uploadedResponse.secure_url;
+        }
+
         user.name = name || user.name;
         user.email = email || user.email;
         user.username = username || user.username;
@@ -179,12 +217,14 @@ const updateUser = async (req, res) => {
         user.bio = bio || user.bio;
 
         user = await user.save();
-        return res
-            .status(200)
-            .json({ message: "Profile updated successfully", user: user });
+
+        // trả về user không có mật khẩu khi
+        user.password = null;
+
+        return res.status(200).json(user);
     } catch (e) {
         console.log("Error updateUser: ", e.message);
-        return res.status(500).json({ message: e.message });
+        return res.status(500).json({ error: e.message });
     }
 };
 
