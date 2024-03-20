@@ -125,7 +125,7 @@ const replyToPost = async (req, res) => {
         const { postId } = req.params;
         const { text } = req.body;
         const userId = req.user._id;
-        const userProfilePic = req.user.userProfilePic;
+        const userProfilePic = req.user.profilePic;
         const username = req.user.username;
 
         if (!text) {
@@ -168,7 +168,7 @@ const getFeedPosts = async (req, res) => {
             postedBy: { $in: following },
         }).sort({ createdAt: -1 });
 
-        return res.status(200).json({ feedPosts });
+        return res.status(200).json(feedPosts);
     } catch (e) {
         console.log("Error getFeedPosts: ", e.message);
         return res.status(500).json({ error: e.message });
