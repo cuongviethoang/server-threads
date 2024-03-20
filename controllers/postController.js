@@ -58,7 +58,7 @@ const getPost = async (req, res) => {
             return res.status(404).json({ error: "Post not found" });
         }
 
-        res.status(200).json({ post });
+        res.status(200).json(post);
     } catch (e) {
         console.log("Error getPost: ", e.message);
         return res.status(500).json({ error: e.message });
@@ -77,6 +77,12 @@ const deletePost = async (req, res) => {
             return res
                 .status(401)
                 .json({ error: "Please login to use function here!" });
+        }
+
+        if (post.img) {
+            await cloudinary.uploader.destroy(
+                post.img.split("/").pop().split(".")[0]
+            );
         }
 
         await Post.findByIdAndDelete(req.params.postId);
@@ -141,9 +147,7 @@ const replyToPost = async (req, res) => {
 
         post.replies.push(reply);
         await post.save();
-        return res
-            .status(200)
-            .json({ message: "Reply added successfully", post });
+        return res.status(200).json(reply);
     } catch (e) {
         console.log("Error replyToPost: ", e.message);
         return res.status(500).json({ error: e.message });
@@ -175,6 +179,26 @@ const getFeedPosts = async (req, res) => {
     }
 };
 
+const getUserPosts = async (req, res) => {
+    const { username } = req.params;
+    try {
+        const user = await User.findOne({ username: username });
+
+        if (!user) {
+            return res.status(400).json({ error: "User not found!" });
+        }
+
+        const posts = await Post.find({ postedBy: user._id }).sort({
+            createdAt: -1,
+        });
+
+        return res.status(200).json(posts);
+    } catch (e) {
+        console.log("Error getFeedPosts: ", e.message);
+        return res.status(500).json({ error: e.message });
+    }
+};
+
 export {
     createPost,
     getPost,
@@ -182,4 +206,5 @@ export {
     likeUnlikePost,
     replyToPost,
     getFeedPosts,
+    getUserPosts,
 };
