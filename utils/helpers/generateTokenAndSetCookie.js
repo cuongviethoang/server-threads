@@ -6,7 +6,7 @@ const generateTokenAndSetCookie = (userId, res) => {
     });
 
     res.cookie("jwt", token, {
-        httpOnly: true, // more secure
+        httpOnly: true, // Một HttpOnly session cookie sẽ chỉ được sử dụng trong một HTTP (hoặc HTTPS) request, do đó hạn chế bị truy cập bởi các non-HTTP APIs chẳng hạn Javascript
         maxAge: 15 * 24 * 60 * 60 * 1000,
         sameSite: "strict", // CSRF,
     });
