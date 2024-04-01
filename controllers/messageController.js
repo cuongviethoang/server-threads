@@ -71,12 +71,14 @@ const getConversations = async (req, res) => {
     try {
         const conversations = await Conversation.find({
             participants: userId,
-        }).populate({
-            path: "participants",
-            select: "username profilePic",
-        });
+        })
+            .populate({
+                path: "participants",
+                select: "username profilePic",
+            })
+            .sort({ createdAt: -1 });
 
-        // remove the current user from the participants array
+        // chỉ lấy các thuộc tính user người nhận trong participants
         conversations.forEach((conversation) => {
             conversation.participants = conversation.participants.filter(
                 (participant) =>
