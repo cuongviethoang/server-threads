@@ -11,6 +11,8 @@ const io = new Server(server, {
     },
 });
 
+export const getRecipientSocketId = (recipientId) => userSocketMap[recipientId];
+
 const userSocketMap = {}; // userIdL socketId
 // mỗi 1 người khi connect vào web sẽ có 1 socketId riêng
 io.on("connection", (socket) => {
