@@ -6,11 +6,11 @@ import userRoutes from "./routes/userRoutes.js";
 import postRoutes from "./routes/postRoutes.js";
 import messageRoutes from "./routes/messageRouters.js";
 import { v2 as cloudinary } from "cloudinary";
+import { app, server } from "./socket/socket.js";
 
 dotenv.config();
-connectDB();
 
-const app = express();
+connectDB();
 
 const PORT = process.env.PORT || 5000;
 
@@ -20,6 +20,7 @@ cloudinary.config({
     api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
+// Middlewares
 app.use(express.json({ limit: "50mb" })); // Để chuyển thành dữ liệu JSON trong request body
 app.use(express.urlencoded({ extended: true })); // để chuyển thành dữ liệu form trong request body
 app.use(cookieParser());
@@ -29,6 +30,6 @@ app.use("/api/users", userRoutes);
 app.use("/api/posts", postRoutes);
 app.use("/api/messages", messageRoutes);
 
-app.listen(PORT, () =>
+server.listen(PORT, () =>
     console.log(`Server started at http://localhost:${PORT}`)
 );
