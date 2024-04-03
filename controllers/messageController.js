@@ -82,7 +82,7 @@ const getConversations = async (req, res) => {
                 path: "participants",
                 select: "username profilePic",
             })
-            .sort({ createdAt: -1 });
+            .sort({ updatedAt: -1 });
 
         // chỉ lấy các thuộc tính user người nhận trong participants
         conversations.forEach((conversation) => {
