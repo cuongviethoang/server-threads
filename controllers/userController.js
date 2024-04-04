@@ -34,6 +34,54 @@ const getUserProfile = async (req, res) => {
     }
 };
 
+const getSuggestUsers = async (req, res) => {
+    try {
+        // exclude the current user from suggested users array, exclude users that current user is already
+        const userId = req.user._id;
+
+        // lấy ra mảng id user đã follow bạn
+        const usersFollowedByYou = await User.findById(userId).select(
+            "following"
+        );
+        // console.log("usersFollowedByYou: ", usersFollowedByYou);
+        // Trả về:
+        // usersFollowedByYou:  {
+        //     _id: new ObjectId('65f6a652d536bfcc1ac153eb'),
+        //     following: [ '65f6a99bd5de416ef99e3504', '65f80699d5049483f81c21ee' ]
+        //  }
+
+        const users = await User.aggregate([
+            {
+                $match: {
+                    _id: { $ne: userId }, // $match: dùng để lọc theo cac tài liệu từ 1 collection
+                    // $ne: là 1 toán tử so sánh, có ý nghĩa không bằng
+                },
+            },
+            {
+                $sample: { size: 10 }, // $sample: dùng để lấy ngẫu nhiên các tài liệu từ 1 collection
+            },
+        ]);
+
+        // lọc ra các user chưa follow bạn
+        const filterUsers = users.filter(
+            (user) => !usersFollowedByYou.following.includes(user._id)
+        );
+
+        const suggestedUsers = filterUsers.slice(0, 4);
+
+        suggestedUsers.forEach((user) => {
+            (user.password = null),
+                (user.followers = []),
+                (user.following = []);
+        });
+
+        return res.status(200).json(suggestedUsers);
+    } catch (e) {
+        console.log("Error getSuggestedUser: ", e.message);
+        return res.status(500).json({ error: e.message });
+    }
+};
+
 const signupUser = async (req, res) => {
     try {
         const { name, email, username, password } = req.body;
@@ -260,4 +308,5 @@ export {
     followUnFollowUser,
     updateUser,
     getUserProfile,
+    getSuggestUsers,
 };
