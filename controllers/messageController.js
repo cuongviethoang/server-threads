@@ -1,7 +1,8 @@
+import { v2 as cloudinary } from "cloudinary";
+
+import { getRecipientSocketId, io } from "../socket/socket.js";
 import Conversation from "../models/conversationModel.js";
 import Message from "../models/messageModel.js";
-import { getRecipientSocketId, io } from "../socket/socket.js";
-import { v2 as cloudinary } from "cloudinary";
 
 const sendMessage = async (req, res) => {
     try {
@@ -47,6 +48,7 @@ const sendMessage = async (req, res) => {
             }),
         ]);
 
+        // lấy ra socketId của người bên kia nhận tin nhắn
         const recipientSocketId = getRecipientSocketId(recipientId);
         if (recipientSocketId) {
             io.to(recipientSocketId).emit("newMessage", newMessage);

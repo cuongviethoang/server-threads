@@ -1,9 +1,10 @@
+import mongoose from "mongoose";
+import { v2 as cloudinary } from "cloudinary";
+import bcrypt from "bcryptjs";
+
 import User from "../models/userModel.js";
 import Post from "../models/postModel.js";
-import bcrypt from "bcryptjs";
 import generateTokenAndSetCookie from "../utils/helpers/generateTokenAndSetCookie.js";
-import { v2 as cloudinary } from "cloudinary";
-import mongoose from "mongoose";
 
 const getUserProfile = async (req, res) => {
     const query = req.params.query;
@@ -39,7 +40,7 @@ const getSuggestUsers = async (req, res) => {
         // exclude the current user from suggested users array, exclude users that current user is already
         const userId = req.user._id;
 
-        // lấy ra mảng id user đã follow bạn
+        // lấy ra mảng user mà userId này đang follow
         const usersFollowedByYou = await User.findById(userId).select(
             "following"
         );
@@ -62,7 +63,7 @@ const getSuggestUsers = async (req, res) => {
             },
         ]);
 
-        // lọc ra các user chưa follow bạn
+        // lọc ra các user bạn chưa follow
         const filterUsers = users.filter(
             (user) => !usersFollowedByYou.following.includes(user._id)
         );
@@ -138,6 +139,11 @@ const loginUser = async (req, res) => {
                 .json({ error: "Invalid username or password" });
         }
 
+        if (user.isFrozen) {
+            user.isFrozen = false;
+            await user.save();
+        }
+
         generateTokenAndSetCookie(user._id, res);
 
         return res.status(200).json({
@@ -166,7 +172,7 @@ const logoutUser = async (req, res) => {
 
 const followUnFollowUser = async (req, res) => {
     try {
-        // lấy ra id user của người ta định follow hoặc un follow
+        // lấy ra id user của người ta định follow hoặc unfollow
         const { id } = req.params;
 
         // lấy ra thông tin của họ theo id;
@@ -189,7 +195,7 @@ const followUnFollowUser = async (req, res) => {
         const isFollowing = currentUser.following.includes(id);
 
         if (isFollowing) {
-            // bỏ follow người mà ta đang theo dõi, dùng $pull để loại bỏ id đó khỏi mảng following
+            // bỏ follow người mà chính mình đang theo dõi, dùng $pull để loại bỏ id đó khỏi mảng following
             await User.findByIdAndUpdate(req.user._id, {
                 $pull: { following: id },
             });
@@ -301,6 +307,23 @@ const updateUser = async (req, res) => {
     }
 };
 
+const freezeAccount = async (req, res) => {
+    try {
+        const user = await User.findById(req.user._id);
+        if (!user) {
+            return res.status(404).json({ error: "User not found" });
+        }
+
+        user.isFrozen = true;
+
+        await user.save();
+        return res.status(200).json({ success: true });
+    } catch (e) {
+        console.log("Error updateUser: ", e.message);
+        return res.status(500).json({ error: e.message });
+    }
+};
+
 export {
     signupUser,
     loginUser,
@@ -309,4 +332,5 @@ export {
     updateUser,
     getUserProfile,
     getSuggestUsers,
+    freezeAccount,
 };
